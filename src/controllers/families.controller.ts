@@ -13,7 +13,7 @@ export const getAllFamilies = async (req: Request, res: Response, next: NextFunc
 export const getFamilyById = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
-    const family = await FamiliesService.getFamilyById(Number(id));
+    const family = await FamiliesService.getFamilyById(id);
 
     if (!family) {
       const error = new Error('Family not found');
@@ -39,7 +39,7 @@ export const createFamily = async (req: Request, res: Response, next: NextFuncti
 export const updateFamily = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
-    const updatedFamily = await FamiliesService.updateFamily(Number(id), req.body);
+    const updatedFamily = await FamiliesService.updateFamily(id, req.body);
 
     if (!updatedFamily) {
       const error = new Error('Family not found');

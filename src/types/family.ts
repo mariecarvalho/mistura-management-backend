@@ -1,6 +1,8 @@
 export interface Family {
-  id: number;
+  id: string;
   representative_name: string;
+  representative_birth_date: string;
+  representative_gender: string;
   people_count: number;
   children_count: number;
   current_benefit: string | null;
@@ -37,11 +39,12 @@ export interface AddressInput {
 export interface ContactInput {
   contact_type: string;
   contact_value: string;
-  note?: string;
+  contact_note?: string;
 }
 
 export interface ChildInput {
   name: string;
   birth_date: string; // você pode usar Date, mas em geral o front manda string ISO
+  gender?: string;
   relationship?: string;
 }

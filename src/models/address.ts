@@ -1,7 +1,7 @@
 import { PoolClient } from 'pg';
 import { AddressInput } from '../types/family';
 
-export const createAddress = async (client: PoolClient, familyId: number, address: AddressInput) => {
+export const createAddress = async (client: PoolClient, familyId: string, address: AddressInput) => {
   await client.query(
     `INSERT INTO family_address
       (family_id, street, number, complement, district, city, state, postal_code)

@@ -56,7 +56,8 @@ export const updateFamily = async (req: Request, res: Response, next: NextFuncti
 export const deleteFamily = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
-    const deleted = await FamiliesService.deleteFamily(Number(id));
+    console.log('id controller', id)
+    const deleted = await FamiliesService.deleteFamily(id);
 
     if (!deleted) {
       const error = new Error('Family not found');

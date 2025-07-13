@@ -4,11 +4,11 @@ import * as ContactModel from '../models/familyContact';
 import * as ChildModel from '../models/child';
 import pool from '../config/database';
 import { PoolClient } from 'pg';
-import { AddressInput, FamilyInput } from '../types/family';
+import { AddressInput, ChildInput, Family, FamilyInput } from '../types/family';
 import { getAddressByFamilyId, updateAddress } from './address';
 import { getContactById, updateContactById } from './contact';
 import { getChildById, updateChild } from './child';
-
+import { FamilyOutput, ChildOutput } from '../types/family';
 
 export const getFamilyById = async (id: string) => {
   return FamiliesModel.getFamilyById(id);
@@ -62,7 +62,8 @@ export const getAllFamilies = async () => {
     `;
 
     const result = await client.query(query);
-    return result.rows;
+
+    return mapRowToFamily(result.rows);
   } finally {
     client.release();
   }
@@ -189,6 +190,58 @@ const upsertAddressByFamilyId = async (
 };
 
 
-export const deleteFamily = async (id: number) => {
+export const deleteFamily = async (id: string) => {
   return FamiliesModel.deleteFamily(id);
 };
+
+
+export function mapRowToFamily(rows: any[]): FamilyOutput[] {
+  return rows.map((row) => {
+    const contacts = row.contacts?.filter(
+      (c: any) => c.contact_type && c.contact_value
+    ) ?? [];
+
+    const children: ChildOutput[] = (row.children ?? []).map((child: any) => ({
+      name: child.name,
+      birth_date: child.birth_date,
+      gender: child.gender,
+      relationship: child.relationship,
+      status: child.status ?? 'Ativo',
+      age: child.age ?? undefined,
+    }));
+
+    return {
+      id: row.id,
+      representative_name: row.representative_name,
+      representative_birth_date: row.representative_birth_date,
+      representative_gender: row.representative_gender,
+      people_count: row.people_count,
+      children_count: row.children_count,
+      current_benefit: row.current_benefit,
+      benefit_status: row.benefit_status,
+      last_presence_date: row.last_presence_date,
+      presence_status: row.presence_status,
+
+      address: {
+        street: row.street,
+        number: row.number,
+        complement: row.complement,
+        district: row.district,
+        city: row.city,
+        state: row.state,
+        postal_code: row.postal_code,
+      },
+
+      contacts,
+      children,
+
+      // compatibilidade com UI
+      street: row.street,
+      contact_value: contacts?.[0]?.contact_value ?? '',
+      contact_note: contacts?.[0]?.contact_note ?? '',
+
+      created_at: row.created_at ?? undefined,
+      updated_at: row.updated_at ?? undefined,
+    };
+  });
+}

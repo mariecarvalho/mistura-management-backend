@@ -1,13 +1,13 @@
 import pool from '../config/database';
 import { PoolClient } from 'pg';
-import { Family } from '../types/family';
+import { Family, FamilyOutput } from '../types/family';
 
-export const getAllFamilies = async (): Promise<Family[]> => {
+export const getAllFamilies = async (): Promise<FamilyOutput[]> => {
   const result = await pool.query('SELECT * FROM family ORDER BY id DESC');
   return result.rows;
 };
 
-export const getFamilyById = async (id: string): Promise<Family | null> => {
+export const getFamilyById = async (id: string): Promise<FamilyOutput | null> => {
   const result = await pool.query('SELECT * FROM family WHERE id = $1', [id]);
   return result.rows[0] || null;
 };
@@ -25,7 +25,6 @@ export const createFamily = async (client: PoolClient, familyData: Partial<Famil
     presence_status
   } = familyData;
 
-  console.log('familyData', familyData);
   const result = await client.query(
     `INSERT INTO family
       (representative_name, representative_birth_date, representative_gender, people_count, children_count, current_benefit, benefit_status, last_presence_date, presence_status)
@@ -96,7 +95,7 @@ export const updateFamily = async (
   return result.rows[0] || null;
 };
 
-export const deleteFamily = async (id: number) => {
+export const deleteFamily = async (id: string) => {
   console.log('id',id)
   return await pool.query('DELETE FROM family WHERE id = $1', [id]);;
 };

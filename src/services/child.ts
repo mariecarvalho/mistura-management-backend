@@ -1,5 +1,7 @@
 import { PoolClient } from 'pg';
 import { ChildInput } from '../types/family';
+import { deleteChildById, getChildrenById } from '../models/child';
+import pool from '../config/database';
 
 export const getChildById = async (client: PoolClient, childId: string) => {
   const result = await client.query(
@@ -29,4 +31,44 @@ export const updateChild = async (
       childId
     ]
   );
+};
+
+export const createChild = async (
+  client: PoolClient,
+  child: ChildInput & { family_id: string }
+) => {
+  await client.query(
+    `INSERT INTO child (
+      name,
+      birth_date,
+      gender,
+      relationship,
+      family_id
+    ) VALUES ($1, $2, $3, $4, $5)`,
+    [
+      child.name,
+      child.birth_date,
+      child.gender,
+      child.relationship,
+      child.family_id
+    ]
+  );
+};
+
+export const deleteChild = async (id: string): Promise<boolean | null> => {
+  const client = await pool.connect();
+
+  try {
+    const existing = await getChildrenById(client, id);
+
+    if (existing.length === 0) {
+      return false;
+    }
+
+    const result = await deleteChildById(client, id);
+    return result ? result > 0: null;
+
+  } finally {
+    client.release();
+  }
 };

@@ -1,12 +1,12 @@
 import { Router } from 'express';
-import * as ActionsController from '../controllers/actions.controller';
+import * as ActionController from '../controllers/actions.controller';
 
 const router = Router();
 
-router.get('/', ActionsController.getAllActions);
-router.get('/:id', ActionsController.getActionById);
-router.post('/', ActionsController.createAction);
-router.put('/:id', ActionsController.updateAction);
-router.delete('/:id', ActionsController.deleteAction);
+router.get('/', ActionController.getAllActions);
+router.get('/:id', ActionController.getActionById);
+router.post('/', ActionController.createAction);
+router.put('/:id', ActionController.updateAction);
+router.delete('/:id', ActionController.deleteAction);
 
 export default router;

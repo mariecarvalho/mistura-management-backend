@@ -15,3 +15,21 @@ export const createChild = async (client: PoolClient, familyId: string, child: C
     ]
   );
 };
+
+export const getChildrenByFamilyId = async (client: PoolClient, familyId: string) => {
+  const res = await client.query('SELECT * FROM child WHERE family_id = $1', [familyId]);
+  return res.rows;
+};
+
+export const getChildrenById = async (client: PoolClient, id: string) => {
+  const res = await client.query('SELECT * FROM child WHERE id = $1', [id]);
+  return res.rows;
+};
+
+export const deleteChildById = async (client: PoolClient, id: string): Promise<number | null> => {
+  const result = await client.query(
+    'DELETE FROM child WHERE id = $1',
+    [id]
+  );
+  return result.rowCount;
+};

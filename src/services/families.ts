@@ -4,10 +4,10 @@ import * as ContactModel from '../models/familyContact';
 import * as ChildModel from '../models/child';
 import pool from '../config/database';
 import { PoolClient } from 'pg';
-import { AddressInput, ChildInput, Family, FamilyInput } from '../types/family';
+import { AddressInput, FamilyInput } from '../types/family';
 import { getAddressByFamilyId, updateAddress } from './address';
 import { getContactById, updateContactById } from './contact';
-import { getChildById, updateChild } from './child';
+import { createChild, updateChild } from './child';
 import { FamilyOutput, ChildOutput } from '../types/family';
 
 export const getFamilyById = async (id: string) => {
@@ -44,6 +44,7 @@ export const getAllFamilies = async () => {
 
         json_agg(
           json_build_object(
+            'id', ch.id,
             'name', ch.name,
             'birth_date', ch.birth_date,
             'gender', ch.gender,
@@ -125,15 +126,12 @@ export const updateFamily = async (id: string, familyData: any) => {
   try {
     await client.query('BEGIN');
 
-    // Atualiza dados principais da família
     await FamiliesModel.updateFamily(client, id, familyData);
 
-    // Atualiza ou cria endereço
     if (familyData.address) {
       await upsertAddressByFamilyId(client, id, familyData.address);
     }
 
-    // Atualiza ou cria contatos
     if (Array.isArray(familyData.contacts)) {
       for (const contact of familyData.contacts) {
         if (contact.id) {
@@ -148,24 +146,21 @@ export const updateFamily = async (id: string, familyData: any) => {
       }
     }
 
-    // Atualiza ou cria crianças
     if (Array.isArray(familyData.children)) {
-      for (const child of familyData.children) {
-        if (child.id) {
-          const existing = await getChildById(client, child.id);
-          if (existing) {
-            await updateChild(client, child.id, child);
-            continue;
-          }
-        }
+      const existingChildren = await ChildModel.getChildrenByFamilyId(client, id);
+      for (const childData of familyData.children) {
+        const childExist = existingChildren.find((child: any)=>child.id == childData.id)
 
-        await ChildModel.createChild(client, id, child);
+        if (childExist) {
+          await updateChild(client, childData.id, childData);
+        } else {
+          await createChild(client, {...childData, family_id: id});
+        }
       }
     }
 
     await client.query('COMMIT');
 
-    // Retorna família atualizada (pode usar getFamilyById se quiser)
     return await FamiliesModel.getFamilyById(id);
   } catch (err) {
     await client.query('ROLLBACK');
@@ -202,6 +197,7 @@ export function mapRowToFamily(rows: any[]): FamilyOutput[] {
     ) ?? [];
 
     const children: ChildOutput[] = (row.children ?? []).map((child: any) => ({
+      id: child.id,
       name: child.name,
       birth_date: child.birth_date,
       gender: child.gender,
@@ -235,7 +231,6 @@ export function mapRowToFamily(rows: any[]): FamilyOutput[] {
       contacts,
       children,
 
-      // compatibilidade com UI
       street: row.street,
       contact_value: contacts?.[0]?.contact_value ?? '',
       contact_note: contacts?.[0]?.contact_note ?? '',

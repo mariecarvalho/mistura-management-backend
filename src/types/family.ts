@@ -44,12 +44,13 @@ export interface ContactInput {
 
 export interface ChildInput {
   name: string;
-  birth_date: string; // você pode usar Date, mas em geral o front manda string ISO
+  birth_date: string;
   gender?: string;
   relationship?: string;
   status?: string;
 }
 export interface ChildOutput {
+  id: string;
   name: string;
   birth_date: string;
   gender: 'Masculino' | 'Feminino';

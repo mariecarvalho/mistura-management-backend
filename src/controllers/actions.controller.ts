@@ -1,10 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
+import * as ActionService from '../services/action';
 
 export const getAllActions = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    res.json([
-      { id: 1, title: 'Entrega de Marmitas - Junho', action_date: '2024-06-07', families_served: 25 }
-    ]);
+    const actions = await ActionService.getAllActions();
+    res.json(actions);
   } catch (err) {
     next(err);
   }
@@ -13,7 +13,15 @@ export const getAllActions = async (req: Request, res: Response, next: NextFunct
 export const getActionById = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
-    res.json({ id, title: `Action ${id}`, action_date: '2024-06-07', families_served: 10 });
+    const action = await ActionService.getActionById(id);
+
+    if (!action) {
+      const error = new Error('Action not found');
+      (error as any).statusCode = 404;
+      throw error;
+    }
+
+    res.json(action);
   } catch (err) {
     next(err);
   }
@@ -21,11 +29,9 @@ export const getActionById = async (req: Request, res: Response, next: NextFunct
 
 export const createAction = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { title, action_date, families_served } = req.body;
-    // Simula uma criação — no model você vai colocar depois
-    res.status(201).json({
-      id: 999, title, action_date, families_served
-    });
+    console.log('ENTROU AQUI')
+    const action = await ActionService.createAction(req.body);
+    res.status(201).json(action);
   } catch (err) {
     next(err);
   }
@@ -34,10 +40,15 @@ export const createAction = async (req: Request, res: Response, next: NextFuncti
 export const updateAction = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
-    const { title, action_date, families_served } = req.body;
-    res.json({
-      id: Number(id), title, action_date, families_served
-    });
+    const updatedAction = await ActionService.updateAction(id, req.body);
+
+    if (!updatedAction) {
+      const error = new Error('Action not found');
+      (error as any).statusCode = 404;
+      throw error;
+    }
+
+    res.json(updatedAction);
   } catch (err) {
     next(err);
   }
@@ -46,6 +57,14 @@ export const updateAction = async (req: Request, res: Response, next: NextFuncti
 export const deleteAction = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
+    const deleted = await ActionService.deleteAction(id);
+
+    if (!deleted) {
+      const error = new Error('Action not found');
+      (error as any).statusCode = 404;
+      throw error;
+    }
+
     res.status(204).send();
   } catch (err) {
     next(err);

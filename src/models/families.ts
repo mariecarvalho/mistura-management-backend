@@ -94,8 +94,3 @@ export const updateFamily = async (
 
   return result.rows[0] || null;
 };
-
-export const deleteFamily = async (id: string) => {
-  console.log('id',id)
-  return await pool.query('DELETE FROM family WHERE id = $1', [id]);;
-};

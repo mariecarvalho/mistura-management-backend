@@ -22,13 +22,14 @@ export const createFamily = async (client: PoolClient, familyData: Partial<Famil
     children_count,
     current_benefit,
     benefit_status,
-    presence_status
+    presence_status,
+    is_single_mother,
   } = familyData;
 
   const result = await client.query(
     `INSERT INTO family
-      (representative_name, representative_birth_date, representative_gender, people_count, children_count, current_benefit, benefit_status, last_presence_date, presence_status)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      (representative_name, representative_birth_date, representative_gender, people_count, children_count, current_benefit, benefit_status, last_presence_date, presence_status, is_single_mother)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
      RETURNING *`,
     [
       representative_name,
@@ -39,7 +40,8 @@ export const createFamily = async (client: PoolClient, familyData: Partial<Famil
       current_benefit,
       benefit_status,
       last_presence_date,
-      presence_status
+      presence_status,
+      is_single_mother ?? (representative_gender === 'Feminino' && (children_count ?? 0) >= 1),
     ]
   );
 
@@ -61,8 +63,15 @@ export const updateFamily = async (
     current_benefit,
     benefit_status,
     last_presence_date,
-    presence_status
+    presence_status,
+    is_single_mother,
   } = familyData;
+
+  // is_single_mother é booleano — não usa COALESCE (false seria ignorado)
+  // passa o valor diretamente; se undefined, usa expressão condicional
+  const singleMotherVal = is_single_mother !== undefined
+    ? is_single_mother
+    : null; // null → UPDATE ignora via CASE abaixo
 
   const result = await client.query(
     `UPDATE family SET
@@ -75,8 +84,9 @@ export const updateFamily = async (
       benefit_status = COALESCE($7, benefit_status),
       last_presence_date = COALESCE($8, last_presence_date),
       presence_status = COALESCE($9, presence_status),
+      is_single_mother = CASE WHEN $10::boolean IS NOT NULL THEN $10::boolean ELSE is_single_mother END,
       updated_at = NOW()
-    WHERE id = $10
+    WHERE id = $11
     RETURNING *`,
     [
       representative_name,
@@ -88,9 +98,15 @@ export const updateFamily = async (
       benefit_status,
       last_presence_date,
       presence_status,
+      singleMotherVal,
       id,
     ]
   );
 
   return result.rows[0] || null;
+};
+
+export const deleteFamily = async (id: string): Promise<boolean> => {
+  const result = await pool.query('DELETE FROM family WHERE id = $1 RETURNING id', [id]);
+  return (result.rowCount ?? 0) > 0;
 };

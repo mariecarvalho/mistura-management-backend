@@ -42,7 +42,8 @@ export const getProfile = (req: Request, res: Response): void => {
 };
 
 export const register = async (req: Request, res: Response): Promise<void> => {
-  const { name, email, password, role } = req.body;
+  // role é sempre 'volunteer' no auto-registro público — admin só via painel
+  const { name, email, password } = req.body;
 
   try {
     const existingUser = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
@@ -52,12 +53,11 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
-    const id = uuidv4();
 
     await pool.query(
-      `INSERT INTO users (id, name, email, password_hash, role, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, NOW(), NOW())`,
-      [id, name, email, passwordHash, role || 'volunteer']
+      `INSERT INTO users (name, email, password_hash, role)
+       VALUES ($1, $2, $3, 'volunteer')`,
+      [name, email, passwordHash]
     );
 
     res.status(201).json({ message: 'Usuário criado com sucesso' });

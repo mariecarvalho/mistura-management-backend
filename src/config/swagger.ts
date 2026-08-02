@@ -7,7 +7,7 @@ const options: swaggerJSDoc.Options = {
     info: {
       title: 'Mistura Acolhe API',
       version: '1.0.0',
-      description: 'Documentação da API do projeto social Mistura Acolhe',
+      description: 'Documentação da API do Projeto Mistura',
     },
     servers: [
       {

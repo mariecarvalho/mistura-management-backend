@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import * as ActionService from '../services/action';
+import * as PresenceService from '../services/presence';
 
 export const getAllActions = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -69,4 +70,11 @@ export const deleteAction = async (req: Request, res: Response, next: NextFuncti
   } catch (err) {
     next(err);
   }
+};
+
+export const getPresenceSummary = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const summary = await PresenceService.getActionPresenceSummary(req.params.actionId);
+    res.json(summary);
+  } catch (err) { next(err); }
 };

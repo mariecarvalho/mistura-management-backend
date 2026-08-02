@@ -1,14 +1,14 @@
 import * as FamiliesModel from '../models/families';
 import * as AddressModel from '../models/address';
 import * as ContactModel from '../models/familyContact';
-import * as ChildModel from '../models/child';
+import * as MemberModel from '../models/member';
 import pool from '../config/database';
 import { PoolClient } from 'pg';
 import { AddressInput, FamilyInput } from '../types/family';
 import { getAddressByFamilyId, updateAddress } from './address';
 import { getContactById, updateContactById } from './contact';
-import { createChild, updateChild } from './child';
-import { FamilyOutput, ChildOutput } from '../types/family';
+import { createMember, updateMember } from './member';
+import { FamilyOutput, MemberOutput } from '../types/family';
 
 export const getFamilyById = async (id: string) => {
   return FamiliesModel.getFamilyById(id);
@@ -29,6 +29,8 @@ export const getAllFamilies = async () => {
         f.benefit_status,
         f.last_presence_date,
         f.presence_status,
+        f.has_elderly,
+        f.is_single_mother,
 
         a.street,
         a.number,
@@ -48,18 +50,20 @@ export const getAllFamilies = async () => {
             'name', ch.name,
             'birth_date', ch.birth_date,
             'gender', ch.gender,
-            'relationship', ch.relationship
+            'relationship', ch.relationship,
+            'is_minor', ch.is_minor
           )
-        ) AS children
+        ) AS members
 
       FROM family f
       LEFT JOIN family_address a ON f.id = a.family_id
       LEFT JOIN family_contact c ON f.id = c.family_id
-      LEFT JOIN child ch ON f.id = ch.family_id
+      LEFT JOIN member ch ON f.id = ch.family_id
 
-      GROUP BY 
-        f.id, a.street, a.number, a.complement, a.district, a.city, a.state, a.postal_code,
+      GROUP BY
+        f.id, f.has_elderly, f.is_single_mother, a.street, a.number, a.complement, a.district, a.city, a.state, a.postal_code,
         c.contact_type, c.contact_value, c.contact_note
+      ORDER BY f.representative_name ASC
     `;
 
     const result = await client.query(query);
@@ -80,7 +84,7 @@ export const createFamily = async (familyData: any) => {
 
     await createFamilyAddressIfNeeded(client, family.id, familyData);
     await createFamilyContactsIfNeeded(client, family.id, familyData);
-    await createFamilyChildrenIfNeeded(client, family.id, familyData);
+    await createFamilyMembersIfNeeded(client, family.id, familyData);
 
     await client.query('COMMIT');
 
@@ -112,10 +116,10 @@ const createFamilyContactsIfNeeded = async (client: PoolClient, familyId: string
   }
 };
 
-const createFamilyChildrenIfNeeded = async (client: PoolClient, familyId: string, familyData: FamilyInput) => {
+const createFamilyMembersIfNeeded = async (client: PoolClient, familyId: string, familyData: FamilyInput) => {
   if (familyData.children && Array.isArray(familyData.children)) {
-    for (const child of familyData.children) {
-      await ChildModel.createChild(client, familyId, child);
+    for (const member of familyData.children) {
+      await MemberModel.createMember(client, familyId, member);
     }
   }
 };
@@ -147,14 +151,13 @@ export const updateFamily = async (id: string, familyData: any) => {
     }
 
     if (Array.isArray(familyData.children)) {
-      const existingChildren = await ChildModel.getChildrenByFamilyId(client, id);
-      for (const childData of familyData.children) {
-        const childExist = existingChildren.find((child: any)=>child.id == childData.id)
-
-        if (childExist) {
-          await updateChild(client, childData.id, childData);
+      const existingMembers = await MemberModel.getMembersByFamilyId(client, id);
+      for (const memberData of familyData.children) {
+        const exists = existingMembers.find((m: any) => m.id == memberData.id);
+        if (exists) {
+          await updateMember(client, memberData.id, memberData);
         } else {
-          await createChild(client, {...childData, family_id: id});
+          await createMember(client, { ...memberData, family_id: id });
         }
       }
     }
@@ -196,15 +199,27 @@ export function mapRowToFamily(rows: any[]): FamilyOutput[] {
       (c: any) => c.contact_type && c.contact_value
     ) ?? [];
 
-    const children: ChildOutput[] = (row.children ?? []).map((child: any) => ({
-      id: child.id,
-      name: child.name,
-      birth_date: child.birth_date,
-      gender: child.gender,
-      relationship: child.relationship,
-      status: child.status ?? 'Ativo',
-      age: child.age ?? undefined,
-    }));
+    const calcAge = (bd: string | null): number | undefined => {
+      if (!bd || bd === '1900-01-01') return undefined;
+      const birth = new Date(bd);
+      const today = new Date();
+      let age = today.getFullYear() - birth.getFullYear();
+      if (today.getMonth() < birth.getMonth() ||
+          (today.getMonth() === birth.getMonth() && today.getDate() < birth.getDate())) age--;
+      return age;
+    };
+
+    const members: MemberOutput[] = ((row.members ?? []) as any[])
+      .filter((m: any) => m && m.name)
+      .map((m: any) => ({
+        id: m.id,
+        name: m.name,
+        birth_date: m.birth_date,
+        gender: m.gender,
+        relationship: m.relationship,
+        is_minor: m.is_minor ?? false,
+        age: calcAge(m.birth_date),
+      }));
 
     return {
       id: row.id,
@@ -229,7 +244,9 @@ export function mapRowToFamily(rows: any[]): FamilyOutput[] {
       },
 
       contacts,
-      children,
+      members,
+      has_elderly:      row.has_elderly      ?? false,
+      is_single_mother: row.is_single_mother ?? false,
 
       street: row.street,
       contact_value: contacts?.[0]?.contact_value ?? '',

@@ -9,18 +9,23 @@ export interface Family {
   benefit_status: string | null;
   last_presence_date: string | null;
   presence_status: string | null;
+  has_elderly: boolean;
+  is_single_mother: boolean;
   created_at: string;
   updated_at: string;
 }
 
 export interface FamilyInput {
   representative_name: string;
+  representative_birth_date?: string;
+  representative_gender?: string;
   people_count: number;
   children_count: number;
   current_benefit?: string | null;
   benefit_status?: string | null;
   last_presence_date?: string | null;
   presence_status?: string | null;
+  is_single_mother?: boolean;
   address?: AddressInput;
   contacts?: ContactInput[];
   children?: ChildInput[];
@@ -42,22 +47,27 @@ export interface ContactInput {
   contact_note?: string;
 }
 
-export interface ChildInput {
+export interface MemberInput {
   name: string;
-  birth_date: string;
+  birth_date?: string | null;
   gender?: string;
   relationship?: string;
   status?: string;
 }
-export interface ChildOutput {
+// alias para compatibilidade retroativa
+export type ChildInput = MemberInput;
+
+export interface MemberOutput {
   id: string;
   name: string;
   birth_date: string;
   gender: 'Masculino' | 'Feminino';
   relationship: string;
-  status: 'Ativo' | 'Inativo';
+  is_minor: boolean;
   age?: number;
 }
+// alias para compatibilidade retroativa
+export type ChildOutput = MemberOutput;
 
 export type FamilyOutput = {
   id: string;
@@ -84,14 +94,7 @@ export type FamilyOutput = {
     contact_value: string;
     contact_note?: string;
   }[];
-  children: {
-    name: string;
-    birth_date: string;
-    gender: 'Masculino' | 'Feminino';
-    relationship: string;
-    status: 'Ativo' | 'Inativo';
-    age?: number;
-  }[];
+  members: MemberOutput[];
   created_at?: string;
   updated_at?: string;
 

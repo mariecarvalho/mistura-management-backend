@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import routes from './routes';
+import pool from './config/database';
 import { errorHandler } from './middlewares/errorHandler';
 import { swaggerUi, swaggerSpec } from './config/swagger';
 
@@ -22,6 +23,17 @@ app.use(cors({
   credentials: true,
 }));
 app.use(express.json());
+
+// Health check: mantém o backend acordado e gera atividade no banco (Supabase gratuito pausa por inatividade)
+app.get('/api/health', async (_req, res) => {
+  try {
+    await pool.query('SELECT 1');
+    res.json({ status: 'ok' });
+  } catch (err) {
+    console.error('Health check falhou:', err);
+    res.status(503).json({ status: 'error' });
+  }
+});
 
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 

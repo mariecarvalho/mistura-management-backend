@@ -1,7 +1,8 @@
 import { OAuth2Client } from 'google-auth-library';
+import bcrypt from 'bcrypt';
+import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import pool from '../config/database';
-import { v4 as uuidv4 } from 'uuid';
 
 const client = new OAuth2Client(
   process.env.GOOGLE_CLIENT_ID,
@@ -11,50 +12,66 @@ const client = new OAuth2Client(
 
 export const handleGoogleOAuth = {
   getLoginURL: (): string => {
-    console.log("etrou meeeeesmo")
-
-    const scopes = [
-      'https://www.googleapis.com/auth/userinfo.email',
-      'https://www.googleapis.com/auth/userinfo.profile',
-    ];
-    const url = client.generateAuthUrl({
-      access_type: 'offline',
-      prompt: 'consent',
-      scope: scopes,
+    return client.generateAuthUrl({
+      access_type: 'online',
+      prompt: 'select_account',
+      scope: [
+        'https://www.googleapis.com/auth/userinfo.email',
+        'https://www.googleapis.com/auth/userinfo.profile',
+      ],
     });
-    return url;
   },
+
   processCallback: async (code: string) => {
     const { tokens } = await client.getToken(code);
-    client.setCredentials(tokens);
+    if (!tokens.id_token) {
+      throw new Error('Google não retornou id_token');
+    }
 
     const ticket = await client.verifyIdToken({
-      idToken: tokens.id_token!,
+      idToken: tokens.id_token,
       audience: process.env.GOOGLE_CLIENT_ID,
     });
     const payload = ticket.getPayload();
 
-    if (!payload || !payload.email) {
-      throw new Error('Não foi possível obter email do usuário do Google');
+    if (!payload?.email || !payload.email_verified) {
+      throw new Error('Email do Google ausente ou não verificado');
     }
 
     const email = payload.email.toLowerCase();
-    const result = await pool.query('SELECT * FROM users WHERE LOWER(email) = $1', [email]);
-    let user = result.rows[0];
+    const name = payload.name || email;
 
-    if (!user) {
-      const id = uuidv4();
-      const name = payload.name || 'Usuário Google';
-      const role = 'volunteer';
+    const existing = await pool.query('SELECT * FROM users WHERE LOWER(email) = $1', [email]);
+    let user = existing.rows[0];
 
-      await pool.query(
-        `INSERT INTO users (id, name, email, role, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, NOW(), NOW())`,
-        [id, name, email, role]
+    if (user) {
+      if (user.is_active === false) {
+        throw new Error('Usuário inativo');
+      }
+      if (!user.google_id) {
+        await pool.query('UPDATE users SET google_id = $1, updated_at = NOW() WHERE id = $2', [
+          payload.sub,
+          user.id,
+        ]);
+      }
+    } else {
+      // password_hash é NOT NULL: grava um hash de senha aleatória, impossível de usar no login por senha.
+      const unusableHash = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 10);
+      const inserted = await pool.query(
+        `INSERT INTO users (name, email, password_hash, role, google_id)
+         VALUES ($1, $2, $3, 'volunteer', $4)
+         RETURNING *`,
+        [name, email, unusableHash, payload.sub]
       );
+      user = inserted.rows[0];
+    }
 
-      const newUserResult = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
-      user = newUserResult.rows[0];
+    // Todo voluntário que entra pelo Google passa a constar na lista de voluntários.
+    if (user.role === 'volunteer') {
+      const volunteer = await pool.query('SELECT id FROM volunteer WHERE LOWER(email) = $1', [email]);
+      if (volunteer.rows.length === 0) {
+        await pool.query('INSERT INTO volunteer (name, email) VALUES ($1, $2)', [name, email]);
+      }
     }
 
     const token = jwt.sign(

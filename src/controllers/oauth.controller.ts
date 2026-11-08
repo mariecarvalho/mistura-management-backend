@@ -2,21 +2,25 @@ import { Request, Response } from 'express';
 import { handleGoogleOAuth } from '../services/oauth';
 
 export const googleLogin = (_req: Request, res: Response) => {
-  const url = handleGoogleOAuth.getLoginURL();
-  console.log('entrou')
-  res.redirect(url);
+  res.redirect(handleGoogleOAuth.getLoginURL());
 };
 
 export const googleCallback = async (req: Request, res: Response) => {
+  const frontendUrl = (
+    process.env.FRONTEND_OAUTH_SUCCESS_URL ||
+    process.env.FRONTEND_URL ||
+    'http://localhost:8080'
+  ).replace(/\/+$/, '');
+
   try {
-    console.log('entrou')
     const { code } = req.query;
-    const { user, token } = await handleGoogleOAuth.processCallback(code as string);
-    const redirectUrl = `${process.env.FRONTEND_OAUTH_SUCCESS_URL}?token=${token}`;
-    res.redirect(redirectUrl);
+    if (typeof code !== 'string') {
+      throw new Error('Código de autorização ausente');
+    }
+    const { token } = await handleGoogleOAuth.processCallback(code);
+    res.redirect(`${frontendUrl}/?token=${encodeURIComponent(token)}`);
   } catch (err) {
     console.error('Erro no Google OAuth:', err);
-    res.status(500).json({ error: 'Erro no login com Google' });
+    res.redirect(`${frontendUrl}/?oauth_error=1`);
   }
 };
-
